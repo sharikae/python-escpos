@@ -166,7 +166,7 @@ class Escpos(object):
             header = ESC + b"*" + six.int2byte(density_byte) + self._int_low_high(im.width, 2)
             outp = [ESC + b"3" + six.int2byte(16)]  # Adjust line-feed size
             for blob in im.to_column_format(high_density_vertical):
-                outp.append(header + blob + b"\n")
+                outp.append(TXT_STYLE['align']['center'] + header + blob + b"\n")
             outp.append(ESC + b"2")  # Reset line-feed size
             self._raw(b''.join(outp))
 
@@ -512,6 +512,32 @@ class Escpos(object):
         txt = six.text_type(txt)
         self.magic.write(txt)
 
+    def jp_init(self):
+        self._raw(b'\x1b\x74\x01')  # set charcode jis
+        self._raw(b'\x1c\x43\x01')
+
+    def text_jp(self, txt, dw=False, dh=False):
+        """
+        print japanese KanjiMode text
+
+        :param dw:
+        :param dh:
+        :param txt: text to be printed
+        :return:
+        """
+        self._raw(b'\x1c\x26')
+        n = 0x00
+        if dw:
+            n += 0x04
+        if dh:
+            n += 0x08
+        if n != 0x00:
+            self._raw(b'\x1c\x21' + n.to_bytes(1, byteorder='big'))
+        self._raw(txt.encode('shift-jis', 'ignore'))
+        if n != 0x00:
+            self._raw(b'\x1c\x21\x00')
+        self._raw(b'\x1c\x2e')
+
     def textln(self, txt=''):
         """Print alpha-numeric text with a newline
 
@@ -619,6 +645,13 @@ class Escpos(object):
             self._raw(TXT_STYLE['density'][density])
 
         self._raw(TXT_STYLE['invert'][invert])
+
+    def set_tab(self, *args):
+        msg = b'\x1b\x44'
+        for arg in args:
+            msg += arg.to_bytes(1, byteorder='big')
+        msg += b'\x00'
+        self._raw(msg)
 
     def line_spacing(self, spacing=None, divisor=180):
         """ Set line character spacing.
